@@ -5,6 +5,7 @@ import { useQueryProjectOrOrganization } from "@/src/features/projects/hooks";
 import { showErrorToast } from "@/src/features/notifications";
 import { useSupportDrawer } from "@/src/features/support-chat/SupportDrawerProvider";
 import { useV4UpgradeUiEnabled } from "@/src/features/v4-migration/useV4UpgradeUiEnabled";
+import { useHasOrganizationAccess } from "@/src/features/rbac/utils/checkOrganizationAccess";
 import { isEnterpriseSupportPlan } from "./formConstants";
 import {
   SupportForm,
@@ -22,11 +23,21 @@ export function ConnectedSupportFormSection({
   const { organization, project } = useQueryProjectOrOrganization();
   const { initialTopic } = useSupportDrawer();
   const showV4MigrationTopic = useV4UpgradeUiEnabled(project?.id);
+  // Read-only members of an Enterprise organization cannot raise Severity
+  // 1/2: every Langfuse Cloud user is a VIEWER of the demo organization,
+  // which runs on an Enterprise plan, so gating on the plan alone lets anyone
+  // page the on-call team.
+  const canRaiseHighSeverity = useHasOrganizationAccess({
+    organizationId: organization?.id,
+    scope: "support:createHighSeverityRequest",
+  });
   // The support drawer is mounted globally and reachable from pages without an
   // org/project in the URL (home, setup, onboarding, account settings), where
-  // `organization` is null. Without an org context the plan is unknown, so
-  // Severity 1/2 are gated there. The server applies the same rule.
-  const canSelectHighSeverity = isEnterpriseSupportPlan(organization?.plan);
+  // `organization` is null. Without an org context neither the plan nor the
+  // membership is known, so Severity 1/2 are gated there. The server applies
+  // the same rules.
+  const canSelectHighSeverity =
+    isEnterpriseSupportPlan(organization?.plan) && canRaiseHighSeverity;
 
   const createSupportThread =
     api.supportRouter.createSupportThread.useMutation();

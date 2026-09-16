@@ -78,16 +78,23 @@ export const isPlanWithoutCaseSeverity = (plan?: string): boolean =>
   (NO_CASE_SEVERITY_SUPPORT_PLANS as readonly string[]).includes(plan);
 
 /**
- * Whether a given severity level can be selected on the given plan. Used both
- * to grey out options in the UI and as a server-side safeguard in
+ * Whether a given severity level can be selected, given the plan of the
+ * organization in context and whether the requester may raise high-severity
+ * requests in it (the `support:createHighSeverityRequest` organization
+ * scope). Both conditions are required: read-only members of an Enterprise
+ * organization are capped to Severity 3, because every Langfuse Cloud user is
+ * a VIEWER of the demo organization, which runs on an Enterprise plan.
+ *
+ * Used both to grey out options in the UI and as a server-side safeguard in
  * `mapToPylonCaseSeverity`.
  */
 export const isSeverityAllowedForPlan = (
   severity: string,
-  plan?: string,
+  plan: string | undefined,
+  canRaiseHighSeverity: boolean,
 ): boolean => {
   if (severity === SEVERITY_1 || severity === SEVERITY_2)
-    return isEnterpriseSupportPlan(plan);
+    return isEnterpriseSupportPlan(plan) && canRaiseHighSeverity;
   return true; // Severity 3 is always available
 };
 

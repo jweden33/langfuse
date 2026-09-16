@@ -278,16 +278,25 @@ export function mapMessageTypeToPylonQuestionType(messageType: string): string {
 export function mapToPylonCaseSeverity(params: {
   severity: string;
   plan?: string;
+  /**
+   * Whether the requester holds `support:createHighSeverityRequest` in the
+   * organization they filed from. Read-only members do not, so they are
+   * capped to Sev-3 even on an Enterprise plan: every Langfuse Cloud user is
+   * a VIEWER of the demo organization, which runs on an Enterprise plan.
+   */
+  canRaiseHighSeverity: boolean;
 }): "Sev-1" | "Sev-2" | "Sev-3" | undefined {
-  const { severity, plan } = params;
+  const { severity, plan, canRaiseHighSeverity } = params;
 
   if (isPlanWithoutCaseSeverity(plan)) {
     return undefined;
   }
-  if (severity === SEVERITY_1 && isEnterpriseSupportPlan(plan)) {
+  const mayRaiseHighSeverity =
+    canRaiseHighSeverity && isEnterpriseSupportPlan(plan);
+  if (severity === SEVERITY_1 && mayRaiseHighSeverity) {
     return "Sev-1";
   }
-  if (severity === SEVERITY_2 && isEnterpriseSupportPlan(plan)) {
+  if (severity === SEVERITY_2 && mayRaiseHighSeverity) {
     return "Sev-2";
   }
   return "Sev-3";

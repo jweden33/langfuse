@@ -9,6 +9,9 @@ import { env } from "@/src/env.mjs";
 import { VERSION } from "@/src/constants";
 import { nanoid } from "nanoid";
 import { logger } from "@langfuse/shared/src/server";
+import { type Role } from "@langfuse/shared/src/db";
+
+import { hasOrganizationAccess } from "@/src/features/rbac/utils/checkOrganizationAccess";
 
 import {
   MessageTypeSchema,
@@ -65,6 +68,7 @@ type SessionUser = {
 type Organization = {
   id: string;
   plan?: string;
+  role?: Role;
   projects?: { id: string }[];
 };
 
@@ -103,6 +107,7 @@ export const supportRouter = createTRPCRouter({
         projectId: input.projectId,
         region: env.NEXT_PUBLIC_LANGFUSE_CLOUD_REGION,
         plan: undefined as string | undefined,
+        role: undefined as Role | undefined,
       };
 
       // Validate that, if organizationId is provided the user has access to it
@@ -119,6 +124,7 @@ export const supportRouter = createTRPCRouter({
         }
 
         currentSupportRequestContext.plan = organization.plan;
+        currentSupportRequestContext.role = organization.role;
 
         if (input.projectId) {
           // Validate that, if projectId is provided the user has access to it
@@ -145,6 +151,7 @@ export const supportRouter = createTRPCRouter({
         }
 
         currentSupportRequestContext.plan = organization.plan;
+        currentSupportRequestContext.role = organization.role;
         currentSupportRequestContext.organizationId = organization.id;
       }
 
@@ -153,12 +160,23 @@ export const supportRouter = createTRPCRouter({
       // undefined and the request is capped to Sev-3. This mirrors the
       // client-side gating.
 
-      // Resolve the Pylon case severity (Sev-1/2/3). Sev-1 and Sev-2 are
-      // gated to Enterprise plans inside mapToPylonCaseSeverity, so a
-      // selection from a non-Enterprise plan is safely downgraded server-side.
+      // Resolve the Pylon case severity (Sev-1/2/3). Sev-1 and Sev-2 require
+      // both an Enterprise plan and `support:createHighSeverityRequest` in the
+      // organization the request was filed from, so a selection that meets
+      // neither is safely downgraded server-side. Without an org in context
+      // there is no membership to check, so the request caps out at Sev-3.
+      const canRaiseHighSeverity = currentSupportRequestContext.role
+        ? hasOrganizationAccess({
+            role: currentSupportRequestContext.role,
+            scope: "support:createHighSeverityRequest",
+            admin: ctx.session.user.admin,
+          })
+        : false;
+
       const caseSeverity = mapToPylonCaseSeverity({
         severity: input.severity,
         plan: currentSupportRequestContext.plan,
+        canRaiseHighSeverity,
       });
 
       const { topLevel, subtype } = splitTopic(input.topic);

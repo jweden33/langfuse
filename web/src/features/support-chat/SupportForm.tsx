@@ -223,10 +223,10 @@ export function SupportForm({
     selectedTopic as (typeof TopicGroups)["Product Features"][number],
   );
 
-  // The drawer is globally mounted, so a severity selected under one org's
-  // plan can survive navigation to an org (or no-org page) that no longer
-  // allows it. Snap back to Severity 3 so the visible selection, the Sev-1
-  // confirm dialog, and the submitted value stay consistent with the plan.
+  // The drawer is globally mounted, so a severity selected in one org can
+  // survive navigation to an org (or no-org page) that no longer allows it.
+  // Snap back to Severity 3 so the visible selection, the Sev-1 confirm
+  // dialog, and the submitted value stay consistent with what is allowed.
   const selectedSeverity = form.watch("severity");
   useEffect(() => {
     if (
@@ -342,7 +342,7 @@ export function SupportForm({
           />
 
           {/* Priority (maps to Pylon case_severity). Severity 1 and 2 are
-              gated to Enterprise plans. */}
+              gated to Enterprise plans and to members with edit access. */}
           <FormField
             control={form.control}
             name="severity"
@@ -367,8 +367,8 @@ export function SupportForm({
                         disabled: true as const,
                         disabledReason:
                           severity === SEVERITY_1
-                            ? "Severity 1 is available on the Enterprise plan."
-                            : "Severity 2 is available on the Enterprise plan.",
+                            ? "Severity 1 is available on the Enterprise plan, to members with edit access."
+                            : "Severity 2 is available on the Enterprise plan, to members with edit access.",
                       };
                     })}
                   />
